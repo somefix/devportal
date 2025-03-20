@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Настройки расширения</title>
+	<style>
+		body {
+			padding: 20px;
+			font-family: Arial, sans-serif;
+		}
+		.form-group {
+			margin-bottom: 15px;
+		}
+		label {
+			display: block;
+			margin-bottom: 5px;
+		}
+		input[type="text"] {
+			width: 300px;
+			padding: 5px;
+		}
+		#saveButton {
+			padding: 8px 15px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			cursor: pointer;
+		}
+		#saveButton:hover {
+			background-color: #45a049;
+		}
+		#historyList {
+			margin-top: 20px;
+			max-height: 300px;
+			overflow-y: auto;
+		}
+		.history-item {
+			padding: 8px;
+			border-bottom: 1px solid #eee;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+		.history-url {
+			flex-grow: 1;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			color: #2196F3;
+			text-decoration: none;
+			cursor: pointer;
+		}
+		.history-url:hover {
+			color: #1976D2;
+		}
+		.history-url img {
+			width: 16px;
+			height: 16px;
+		}
+	</style>
+</head>
+<body>
+<h1>Настройки расширения "Devportal"</h1>
+<div class="form-group">
+	<label for="host">Хост для подмены:</label>
+	<input type="text" id="host" name="host" placeholder="По умолчанию: https://localhost.ru.test">
+</div>
+<button id="saveButton">Сохранить</button>
+
+<h2>История переходов</h2>
+<div id="historyList"></div>
+
+<script src="options.js"></script>
+</body>
+</html>
