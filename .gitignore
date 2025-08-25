@@ -1,40 +1,26 @@
-# Системные файлы
-.DS_Store
-Thumbs.db
-
-# Файлы редакторов и IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Логи и отладочные файлы
+# Logs
+logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Зависимости
-node_modules/
-package-lock.json
-yarn.lock
+node_modules
+.output
+stats.html
+stats-*.json
+.wxt
+web-ext.config.ts
 
-# Сборка и компиляция
-dist/
-build/
-*.zip
-
-# Локальные настройки
-.env
-.env.local
-.env.*.local
-
-# Chrome Extension специфичные файлы
-*.crx
-*.pem
-*.zip
-
-# Временные файлы
-tmp/
-temp/ 
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
