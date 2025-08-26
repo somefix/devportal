@@ -43,7 +43,7 @@ const onFromEnter = () => {
 </script>
 
 <template>
-  <div class="flex gap-4 max-w-2xl max-md:flex-wrap">
+  <div class="flex gap-4 max-w-2xl max-md:flex-wrap items-baseline">
     <DPInput
       v-model="from"
       ref="fromInput"

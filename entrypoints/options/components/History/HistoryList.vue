@@ -21,7 +21,7 @@ const links = computed(() => props?.links ?? []);
     </DPEmptyState>
 
     <li v-for="link of links" class="flex items-center justify-between gap-4 py-2">
-      <div>
+      <div class="truncate">
         <a :href="link" target="_blank" class="text-left text-sm text-blue-600">
           {{ link }}
         </a>

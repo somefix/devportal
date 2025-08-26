@@ -50,7 +50,7 @@ const toggle = (value?: boolean) => {
                       <DialogTitle class="text-base font-semibold text-gray-900">{{ props.title }}</DialogTitle>
 
                       <div class="ml-3 flex h-7 items-center">
-                        <DPButton class="text-gray-400 pr-0" flat @click="model = false">
+                        <DPButton class="text-gray-400" flat @click="model = false">
                           <FontAwesomeIcon size="xl" :icon="faXmark" />
                         </DPButton>
                       </div>
