@@ -12,13 +12,13 @@ export default defineConfig({
     "manifest_version": 3,
     "name": "Devportal",
     "version": "1.0",
-    "description": "Открывает заданный URL в новой вкладке.",
+    "description": "Открой нужную страницу с прода на локалке одним кликом — без копипаста урлов!",
     "permissions": [
       "storage",
       "activeTab"
     ],
     action: {
-      default_title: 'Some Title',
+      default_title: 'Devportal',
     },
   }
 });
