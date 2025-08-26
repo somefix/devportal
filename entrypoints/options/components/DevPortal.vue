@@ -8,15 +8,17 @@ import DPInput from "@/shared/components/DPInput.vue";
 import DPButton from "@/shared/components/DPButton.vue";
 import ListOfHosts from "@/entrypoints/options/components/ListOfHosts.vue";
 import RulesSidebar from '@/entrypoints/options/components/Rules/RulesSidebar.vue';
-
-import { MAX_RULES_COUNT, TRule } from '@/entrypoints/options/components/Rules/RulesDomain';
 import HistorySidebar from '@/entrypoints/options/components/History/HistorySidebar.vue';
+
 import {
   CURRENT_HOST_STORAGE_NAME,
   getSyncedStorageName,
   HISTORY_STORAGE_NAME,
-  HOSTS_STORAGE_NAME, RULES_STORAGE_NAME
+  HOSTS_STORAGE_NAME,
+  RULES_STORAGE_NAME,
+  MAX_HOSTS_COUNT
 } from '@/entrypoints/options/constants';
+import { MAX_RULES_COUNT, TRule } from '@/entrypoints/options/components/Rules/RulesDomain';
 
 const host = ref<string>('');
 const currentHost = ref<string>('');
@@ -26,7 +28,7 @@ const ruleList = ref<TRule[]>([]);
 const isShowRulesList = ref(false);
 const isShowHistoryList = ref(false);
 
-const addHostButtonDisabled = computed(() => !host.value);
+const addHostButtonDisabled = computed(() => !host.value || listOfHosts.value.length >= MAX_HOSTS_COUNT);
 
 watch(currentHost, (newValue) => setStorageValue(CURRENT_HOST_STORAGE_NAME, newValue));
 watch(listOfHosts, (newValue) => setStorageValue(HOSTS_STORAGE_NAME, [...newValue]));
@@ -49,11 +51,15 @@ const setStorageValue = (alias: string, value: unknown) => {
 
 
 const addHost = () => {
-  listOfHosts.value = [...listOfHosts.value, host.value];
-  currentHost.value = currentHost.value || host.value;
-  host.value = '';
+  if (listOfHosts.value.length < MAX_HOSTS_COUNT) {
+    removeHost(host.value);
+
+    listOfHosts.value = [...listOfHosts.value, host.value];
+    currentHost.value = currentHost.value || host.value;
+    host.value = '';
+  }
 }
-const selectHost = (host: string) => {
+const selectCurrentHost = (host: string) => {
   currentHost.value = host;
 }
 const removeHost = (host: string) => {
@@ -114,7 +120,7 @@ const removeRule = (rule: TRule) => {
       class="col-span-2 max-md:col-span-full"
       :hosts="listOfHosts"
       :currentHost="currentHost"
-      @select="selectHost"
+      @select="selectCurrentHost"
       @remove="removeHost"
     />
   </form>
