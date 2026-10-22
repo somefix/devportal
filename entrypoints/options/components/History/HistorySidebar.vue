@@ -6,7 +6,7 @@ import DPButton from '@/shared/components/DPButton.vue';
 import DPSidebar from '@/shared/components/DPSidebar.vue';
 import HistoryList from '@/entrypoints/options/components/History/HistoryList.vue';
 
-import { IHistoryProps } from '@/entrypoints/options/components/History/HistoryDomain';
+import type { IHistoryProps } from '@/entrypoints/options/components/History/HistoryDomain';
 
 const model = defineModel<boolean>();
 

@@ -5,7 +5,7 @@ import { faArrowUpRightFromSquare, faClockRotateLeft } from "@fortawesome/free-s
 import DPButton from "@/shared/components/DPButton.vue";
 import DPEmptyState from "@/shared/components/DPEmptyState.vue";
 
-import { IHistoryProps } from '@/entrypoints/options/components/History/HistoryDomain';
+import type { IHistoryProps } from '@/entrypoints/options/components/History/HistoryDomain';
 
 const props = defineProps<IHistoryProps>();
 

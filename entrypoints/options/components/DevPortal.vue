@@ -18,7 +18,7 @@ import {
   RULES_STORAGE_NAME,
   MAX_HOSTS_COUNT
 } from '@/entrypoints/options/constants';
-import { MAX_RULES_COUNT, TRule } from '@/entrypoints/options/components/Rules/RulesDomain';
+import { MAX_RULES_COUNT, type TRule } from '@/entrypoints/options/components/Rules/RulesDomain';
 
 const host = ref<string>('');
 const currentHost = ref<string>('');

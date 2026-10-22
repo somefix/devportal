@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<{
   outline: false,
 });
 
-const model = defineModel({ default: false });
+const model = defineModel<boolean>({ default: false });
 const toggle = (value?: boolean) => {
   if (value === undefined) {
     value = !model.value;

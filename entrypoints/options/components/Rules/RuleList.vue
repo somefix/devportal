@@ -5,7 +5,7 @@ import { faTrash, faSliders, faTurnDown } from "@fortawesome/free-solid-svg-icon
 import DPButton from "@/shared/components/DPButton.vue";
 import DPEmptyState from "@/shared/components/DPEmptyState.vue";
 
-import { IRuleRemoveEmits, IRulesProps } from '@/entrypoints/options/components/Rules/RulesDomain';
+import type { IRuleRemoveEmits, IRulesProps } from '@/entrypoints/options/components/Rules/RulesDomain';
 
 interface IRuleListEmits extends IRuleRemoveEmits {}
 

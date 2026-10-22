@@ -7,7 +7,7 @@ import DPSidebar from '@/shared/components/DPSidebar.vue';
 import RuleList from '@/entrypoints/options/components/Rules/RuleList.vue';
 import RuleAction from '@/entrypoints/options/components/Rules/RuleAction.vue';
 
-import { IRuleAddEmits, IRuleRemoveEmits, IRulesProps } from './RulesDomain';
+import type { IRuleAddEmits, IRuleRemoveEmits, IRulesProps } from './RulesDomain';
 
 interface IRulesEmits extends IRuleAddEmits, IRuleRemoveEmits {}
 

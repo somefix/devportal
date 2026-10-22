@@ -7,7 +7,7 @@ import DPInput from '@/shared/components/DPInput.vue';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
 
-import { IRuleAddEmits } from './RulesDomain';
+import type { IRuleAddEmits } from './RulesDomain';
 
 interface IRuleActionsEmits extends IRuleAddEmits {}
 interface IRuleActionsProps {
