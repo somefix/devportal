@@ -1,17 +1,28 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
-import SelectButton from 'primevue/selectbutton';
 import Checkbox from 'primevue/checkbox';
-import RadioButton from 'primevue/radiobutton';
 import Select from 'primevue/select';
+import SelectButton from 'primevue/selectbutton';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';
 import Message from 'primevue/message';
-import Menu from 'primevue/menu';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
+import TabPanels from 'primevue/tabpanels';
+import TabPanel from 'primevue/tabpanel';
+import Panel from 'primevue/panel';
+import Fieldset from 'primevue/fieldset';
+import Toolbar from 'primevue/toolbar';
+import Tag from 'primevue/tag';
+import ConfirmDialog from 'primevue/confirmdialog';
+import { useConfirm } from 'primevue/useconfirm';
 import { storage } from 'wxt/utils/storage';
+import logo from '@/assets/icon.png';
+import HistoryPanel from './components/HistoryPanel.vue';
 import {
   changeLanguage,
   language,
@@ -21,539 +32,696 @@ import {
 } from '@/shared/i18n';
 import {
   type Settings,
-  type Environment,
+  HISTORY_KEY,
+  SETTINGS_KEY,
   saveSettings,
+  sendBackgroundRequest,
   createProject,
+  createSettingsSnapshot,
+  isValidEnvironmentAddress,
   loadSettings,
-  transformUrl,
+  UPDATE_NOTICE_KEY,
   validateSettings,
   colors,
 } from '@/shared/environments';
+
 const settings = ref<Settings>({
   version: 1,
   projects: [],
   selectedProject: '',
 });
 const project = computed(() =>
-  settings.value.projects.find((p) => p.id === settings.value.selectedProject),
+  settings.value.projects.find(
+    (item) => item.id === settings.value.selectedProject,
+  ),
 );
-const showHistory = ref(false);
+
+const confirmation = useConfirm();
+const dialog = ref(false);
+const dialogName = ref('');
+const editing = ref(false);
+const confirmDeleteProject = () => {
+  const projectId = settings.value.selectedProject;
+  confirmation.require({
+    header: t('deleteProject'),
+    message: t('confirmDelete'),
+    icon: 'pi pi-exclamation-triangle',
+    defaultFocus: 'reject',
+    rejectProps: {
+      label: t('cancel'),
+      severity: 'secondary',
+      outlined: true,
+    },
+    acceptProps: { label: t('deleteProject'), severity: 'danger' },
+    accept: () => {
+      settings.value.projects = settings.value.projects.filter(
+        (p) => p.id !== projectId,
+      );
+      if (settings.value.selectedProject === projectId)
+        settings.value.selectedProject = settings.value.projects[0]?.id ?? '';
+    },
+  });
+};
+
+const openNameDialog = (edit: boolean) => {
+  editing.value = edit;
+  dialogName.value = edit ? (project.value?.name ?? '') : '';
+  dialog.value = true;
+};
+
+const submitName = () => {
+  const name = dialogName.value.trim();
+  if (!name) return;
+
+  if (editing.value && project.value) {
+    project.value.name = name;
+  } else {
+    const newProject = createProject(name);
+    newProject.newTab = globalNewTab.value;
+    settings.value.projects.push(newProject);
+    settings.value.selectedProject = newProject.id;
+  }
+  dialog.value = false;
+};
+
+const environmentFieldCells = {
+  headerCell: 'pl-0 pr-2',
+  bodyCell: 'pl-0 pr-2',
+};
+
+const removeEnvironment = (environmentId: string) => {
+  const selectedProject = project.value;
+  if (!selectedProject) return;
+
+  selectedProject.environments = selectedProject.environments.filter(
+    (environment) => environment.id !== environmentId,
+  );
+  if (selectedProject.defaultEnvironment === environmentId) {
+    selectedProject.defaultEnvironment =
+      selectedProject.environments[0]?.id ?? '';
+  }
+};
+
+const addEnvironment = () => {
+  const environments = project.value?.environments;
+  if (!environments || environments.length >= 20) return;
+
+  environments.push({
+    id: crypto.randomUUID(),
+    name: '',
+    address: '',
+    color: colors[environments.length % colors.length] ?? '#1769ff',
+  });
+};
+
+const addRule = () => {
+  project.value?.rules.push({ from: '', to: '' });
+};
+
+const removeRule = (index: number) => {
+  project.value?.rules.splice(index, 1);
+};
+
+const languageOptions = [
+  { label: 'Русский', value: 'ru' },
+  { label: 'English', value: 'en' },
+];
+
 const globalNewTab = ref(true);
-function updateNewTab(value: boolean) {
+const openLinkOptions = computed(() => [
+  { label: t('newTab'), value: true },
+  { label: t('currentTab'), value: false },
+]);
+const shortcutDefinitions = [
+  ['switch-environment', 'openDefaultEnvironment'],
+  ['toggle-icon-action', 'toggleModeShortcut'],
+] as const;
+const commands = ref<{ name?: string; shortcut?: string }[]>();
+const shortcuts = computed(() =>
+  shortcutDefinitions.map(([name, label]) => ({
+    name,
+    label: t(label),
+    key: commands.value?.find((command) => command.name === name)?.shortcut,
+  })),
+);
+
+const iconActions = computed(() => [
+  { label: t('popup'), value: 'popup' },
+  { label: t('openDefaultEnvironment'), value: 'local' },
+]);
+const savedIconAction = ref<Settings['iconAction']>();
+const iconActionDraft = ref<{
+  value: Settings['iconAction'];
+  imported?: boolean;
+}>();
+const iconAction = computed(() =>
+  iconActionDraft.value ? iconActionDraft.value.value : savedIconAction.value,
+);
+const canConfigureShortcuts = !import.meta.env.FIREFOX;
+
+const updateNewTab = (value: boolean) => {
   globalNewTab.value = value;
   settings.value.projects.forEach((project) => {
     project.newTab = value;
   });
-}
-function openShortcuts() {
+};
+
+const openShortcuts = () => {
   void browser.tabs.create({ url: 'chrome://extensions/shortcuts' });
-}
+};
+
+const setIconAction = (value: NonNullable<Settings['iconAction']>) => {
+  iconActionDraft.value = { value, imported: iconActionDraft.value?.imported };
+};
+
 const status = ref('');
 const error = ref('');
+const saveError = ref('');
 const ready = ref(false);
-const source = ref('https://example.com/app/tasks/123?tab=history');
-const history = ref<string[]>([]);
-const result = computed(() => {
+let shortcutRequest = 0;
+const refreshShortcuts = async () => {
+  const request = ++shortcutRequest;
   try {
-    const p = project.value;
-    const env =
-      p?.environments.find((e) => e.id === p.defaultEnvironment) ??
-      p?.environments[0];
-    return p && env ? transformUrl(source.value, p, env) : '';
-  } catch {
-    return '';
+    const browserCommands = await browser.commands.getAll();
+    if (request === shortcutRequest) commands.value = browserCommands;
+  } catch (e) {
+    if (request === shortcutRequest) error.value = formatError(e);
   }
-});
-const dialog = ref(false);
-const dialogName = ref('');
-const editing = ref(false);
-const file = ref<HTMLInputElement>();
-const rowMenu = ref();
-const row = ref<Environment>();
-const projectMenu = ref();
-const rowItems = computed(() => [
-  {
-    label: t('default'),
-    icon: 'pi pi-star',
-    command: () => {
-      if (project.value && row.value)
-        project.value.defaultEnvironment = row.value.id;
-    },
-  },
-  {
-    label: t('deleteEnvironment'),
-    icon: 'pi pi-trash',
-    command: () => {
-      const p = project.value;
-      if (!p || !row.value) return;
-      p.environments = p.environments.filter((e) => e.id !== row.value!.id);
-      if (p.defaultEnvironment === row.value.id)
-        p.defaultEnvironment = p.environments[0]?.id ?? '';
-    },
-  },
-]);
-const projectItems = computed(() => [
-  { label: t('rename'), icon: 'pi pi-pencil', command: () => nameDialog(true) },
-  {
-    label: t('deleteProject'),
-    icon: 'pi pi-trash',
-    command: () => {
-      if (!confirm(t('confirmDelete'))) return;
-      settings.value.projects = settings.value.projects.filter(
-        (p) => p.id !== settings.value.selectedProject,
-      );
-      settings.value.selectedProject = settings.value.projects[0]?.id ?? '';
-    },
-  },
-]);
-function nameDialog(edit: boolean) {
-  editing.value = edit;
-  dialogName.value = edit ? (project.value?.name ?? '') : '';
-  dialog.value = true;
-}
-function submitName() {
-  if (!dialogName.value.trim()) return;
-  if (editing.value && project.value)
-    project.value.name = dialogName.value.trim();
-  else {
-    const p = createProject(dialogName.value.trim());
-    p.newTab = globalNewTab.value;
-    p.defaultEnvironment = p.environments[0]?.id ?? '';
-    settings.value.projects.push(p);
-    settings.value.selectedProject = p.id;
-  }
-  dialog.value = false;
-}
-function addEnvironment() {
-  if (!project.value || project.value.environments.length >= 20) return;
-  project.value.environments.push({
-    id: crypto.randomUUID(),
-    name: t('newEnvironment'),
-    address: '',
-    color:
-      colors[project.value.environments.length % colors.length] ?? '#1769ff',
+};
+const snapshotOf = createSettingsSnapshot();
+let lastSaved = '';
+let saveQueue = Promise.resolve(true);
+let saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+const serializeDraft = (settings: Settings) => {
+  return JSON.stringify({ ...settings, iconAction: undefined });
+};
+
+const flushSave = () => {
+  clearTimeout(saveTimer);
+  saveTimer = undefined;
+  if (!ready.value) return saveQueue;
+
+  const snapshot = snapshotOf(settings.value);
+  const serialized = serializeDraft(snapshot);
+  const actionDraft = iconActionDraft.value;
+  saveQueue = saveQueue.then(async () => {
+    try {
+      const replaceIconAction =
+        actionDraft !== undefined && actionDraft === iconActionDraft.value;
+      if (replaceIconAction || serialized !== lastSaved) {
+        await saveSettings(
+          { ...snapshot, iconAction: actionDraft?.value },
+          replaceIconAction,
+        );
+        lastSaved = serialized;
+      }
+      if (replaceIconAction && actionDraft === iconActionDraft.value) {
+        iconActionDraft.value = undefined;
+        if (actionDraft.imported) status.value = t('imported');
+      }
+      saveError.value = '';
+      return true;
+    } catch (e) {
+      saveError.value = formatError(e);
+      return false;
+    }
   });
-}
-async function save() {
+  return saveQueue;
+};
+const savePendingChanges = () => {
+  if (saveTimer !== undefined || saveError.value) void flushSave();
+};
+
+const onVisibilityChange = () => {
+  if (document.visibilityState === 'hidden') savePendingChanges();
+  else if (document.visibilityState === 'visible') void refreshShortcuts();
+};
+const history = ref<string[]>([]);
+const clearingHistory = ref(false);
+let stopWatchingHistory: (() => void) | undefined;
+let stopWatchingIconAction: (() => void) | undefined;
+
+const openHistory = async (source: string) => {
   error.value = '';
-  status.value = '';
   try {
-    updateNewTab(globalNewTab.value);
-    await saveSettings(settings.value);
-    status.value = t('saved');
+    await sendBackgroundRequest({
+      type: 'devportal:open-history-source',
+      source,
+    });
   } catch (e) {
     error.value = formatError(e);
   }
-}
-async function copy() {
+};
+
+const clearHistory = async () => {
+  clearingHistory.value = true;
+  error.value = '';
+  status.value = '';
   try {
-    await navigator.clipboard.writeText(result.value);
-    status.value = t('copied');
-  } catch {
-    error.value = t('copyError');
+    await sendBackgroundRequest({ type: 'devportal:clear-history' });
+  } catch (e) {
+    error.value = formatError(e);
+  } finally {
+    clearingHistory.value = false;
   }
-}
-async function importFile(event: Event) {
+};
+
+const file = ref<HTMLInputElement>();
+
+const importFile = async (event: Event) => {
   try {
-    const f = (event.target as HTMLInputElement).files?.[0];
-    if (!f) return;
-    if (f.size > 1000000) throw new Error(t('largeFile'));
-    const data = validateSettings(JSON.parse(await f.text()));
+    const selectedFile = (event.target as HTMLInputElement).files?.[0];
+    if (!selectedFile) return;
+    if (selectedFile.size > 1_000_000) throw new Error(t('largeFile'));
+
+    const data = validateSettings(JSON.parse(await selectedFile.text()));
     settings.value = data;
+    snapshotOf(settings.value, true);
     globalNewTab.value = project.value?.newTab ?? true;
     ready.value = true;
-    status.value = t('imported');
     error.value = '';
+    status.value = '';
+    iconActionDraft.value = { value: data.iconAction, imported: true };
   } catch (e) {
     error.value = formatError(e);
   } finally {
     if (file.value) file.value.value = '';
   }
-}
-function exportFile() {
+};
+
+const exportFile = () => {
+  const snapshot = {
+    ...snapshotOf(settings.value),
+    iconAction: iconAction.value,
+  };
+  const json = JSON.stringify(snapshot, null, 2);
   const url = URL.createObjectURL(
-    new Blob([JSON.stringify(settings.value, null, 2)], {
-      type: 'application/json',
-    }),
+    new Blob([json], { type: 'application/json' }),
   );
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'devportal.json';
-  a.click();
+  const downloadLink = document.createElement('a');
+  downloadLink.href = url;
+  downloadLink.download = 'devportal.json';
+  downloadLink.click();
   URL.revokeObjectURL(url);
-}
+};
+
+watch(
+  [settings, iconActionDraft],
+  ([, draft], [, previousDraft]) => {
+    if (!draft && previousDraft) return;
+    clearTimeout(saveTimer);
+    if (ready.value) saveTimer = setTimeout(flushSave, 400);
+  },
+  { deep: true, flush: 'sync' },
+);
+
 onMounted(async () => {
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('focus', refreshShortcuts);
+  window.addEventListener('pagehide', savePendingChanges);
+  void refreshShortcuts();
+  let iconActionChanged = false;
+  stopWatchingIconAction = storage.watch<Settings>(SETTINGS_KEY, (saved) => {
+    iconActionChanged = true;
+    savedIconAction.value = saved?.iconAction;
+  });
+  let historyChanged = false;
+  stopWatchingHistory = storage.watch<string[]>(HISTORY_KEY, (urls) => {
+    historyChanged = true;
+    history.value = urls ?? [];
+  });
   try {
     await loadLanguage();
-    settings.value = await loadSettings();
-    globalNewTab.value = project.value?.newTab ?? true;
-    history.value = (await storage.getItem<string[]>('sync:history')) ?? [];
-    ready.value = true;
+    const loaded = await loadSettings();
+    if (!ready.value) {
+      settings.value = loaded;
+      snapshotOf(settings.value, true);
+      lastSaved = serializeDraft(loaded);
+      if (!iconActionChanged) savedIconAction.value = loaded.iconAction;
+      globalNewTab.value = project.value?.newTab ?? true;
+      ready.value = true;
+    }
+    const urls = await storage.getItem<string[]>(HISTORY_KEY);
+    if (!historyChanged) history.value = urls ?? [];
+    await storage.removeItem(UPDATE_NOTICE_KEY);
   } catch (e) {
     error.value = formatError(e);
   }
 });
+onUnmounted(() => {
+  clearTimeout(saveTimer);
+  shortcutRequest++;
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  window.removeEventListener('focus', refreshShortcuts);
+  window.removeEventListener('pagehide', savePendingChanges);
+  stopWatchingHistory?.();
+  stopWatchingIconAction?.();
+});
 </script>
+
 <template>
-  <header class="app-header">
-    <div class="brand">
-      <i
-        class="pi pi-arrow-up-right"
-        aria-hidden="true"
-      />
-      <h1>Devportal</h1>
-    </div>
-    <div class="header-actions">
-      <Select
-        :model-value="language"
-        :options="[
-          { label: 'Русский', value: 'ru' },
-          { label: 'English', value: 'en' },
-        ]"
-        option-label="label"
-        option-value="value"
-        aria-label="Язык / Language"
-        @update:model-value="changeLanguage"
-      />
-      <Button
-        :label="t('import')"
-        icon="pi pi-upload"
-        outlined
-        @click="file?.click()"
-      />
-      <Button
-        :label="t('export')"
-        icon="pi pi-download"
-        outlined
-        :disabled="!ready"
-        @click="exportFile"
-      />
-      <Button
-        :label="t('addProject')"
-        icon="pi pi-plus"
-        :disabled="!ready || settings.projects.length >= 30"
-        @click="nameDialog(false)"
-      />
-    </div>
-  </header>
-  <main class="workspace">
-    <nav
-      class="project-tabs"
-      :aria-label="t('chooseProject')"
+  <Toolbar
+    class="gap-3 rounded-none border-x-0 border-t-0 px-4 py-4 sm:px-6"
+    :pt="{ end: { class: 'w-full min-w-0 lg:w-auto' } }"
+    aria-label="Devportal"
+  >
+    <template #start>
+      <div class="flex items-center gap-3">
+        <span
+          class="block size-8 shrink-0 bg-[var(--p-primary-color)]"
+          :style="{ mask: `url(${logo}) center / contain no-repeat` }"
+          aria-hidden="true"
+        />
+        <h1 class="text-2xl font-semibold text-[var(--p-primary-color)]">
+          Devportal
+        </h1>
+      </div>
+    </template>
+    <template #end>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <Select
+          :model-value="language"
+          :options="languageOptions"
+          option-label="label"
+          option-value="value"
+          aria-label="Язык / Language"
+          @update:model-value="changeLanguage"
+        />
+        <Button
+          :label="t('import')"
+          icon="pi pi-upload"
+          outlined
+          @click="file?.click()"
+        />
+        <Button
+          :label="t('export')"
+          icon="pi pi-download"
+          outlined
+          :disabled="!ready"
+          @click="exportFile"
+        />
+        <Button
+          :label="t('addProject')"
+          icon="pi pi-plus"
+          :disabled="!ready || settings.projects.length >= 30"
+          @click="openNameDialog(false)"
+        />
+      </div>
+    </template>
+  </Toolbar>
+  <main class="mx-auto max-w-7xl px-3 pb-6 lg:px-5">
+    <ConfirmDialog class="m-4 max-w-full" />
+    <Tabs
+      v-if="project"
+      v-model:value="settings.selectedProject"
+      scrollable
     >
-      <Button
-        v-for="item in settings.projects"
-        :key="item.id"
-        :label="item.name"
-        text
-        :class="{ selected: item.id === settings.selectedProject }"
-        @click="settings.selectedProject = item.id"
-      />
-      <Button
-        icon="pi pi-ellipsis-h"
-        text
-        :aria-label="t('actions')"
-        :disabled="!project"
-        @click="projectMenu?.toggle($event)"
-      />
-      <Menu
-        ref="projectMenu"
-        :model="projectItems"
-        popup
-      />
-      <Button
-        class="history-button"
-        icon="pi pi-history"
-        text
-        :aria-label="t('history')"
-        @click="showHistory = !showHistory"
-      />
-    </nav>
+      <TabList
+        class="mb-4"
+        :pt="{ tabList: { 'aria-label': t('chooseProject') } }"
+      >
+        <Tab
+          v-for="item in settings.projects"
+          :key="item.id"
+          :value="item.id"
+        >
+          {{ item.name }}
+        </Tab>
+      </TabList>
+      <TabPanels class="bg-transparent p-0">
+        <TabPanel :value="settings.selectedProject">
+          <Panel
+            class="mb-3.5 min-w-0"
+            :pt="{ contentWrapper: { class: 'min-w-0' } }"
+          >
+            <template #header="{ id }">
+              <div class="flex w-full items-center gap-3">
+                <h2
+                  :id="id"
+                  class="min-w-0 text-2xl font-semibold wrap-anywhere"
+                >
+                  {{ project.name }}
+                </h2>
+                <div class="ml-auto flex items-center gap-1">
+                  <Button
+                    icon="pi pi-pencil"
+                    text
+                    :aria-label="t('rename')"
+                    @click="openNameDialog(true)"
+                  />
+                  <Button
+                    icon="pi pi-trash"
+                    text
+                    :aria-label="t('deleteProject')"
+                    @click="confirmDeleteProject"
+                  />
+                </div>
+              </div>
+            </template>
+            <h3 class="mb-4 text-lg font-semibold">{{ t('environments') }}</h3>
+            <DataTable
+              :value="project.environments"
+              data-key="id"
+              :pt="{
+                tableContainer: { class: 'overflow-x-auto' },
+                table: { class: 'min-w-md' },
+              }"
+              scrollable
+            >
+              <Column
+                :header="t('name')"
+                :pt="environmentFieldCells"
+                class="w-2/5"
+              >
+                <template #body="{ data }">
+                  <InputText
+                    v-model="data.name"
+                    :aria-label="t('name')"
+                    :placeholder="t('name')"
+                    class="w-full min-w-24"
+                    maxlength="100"
+                  />
+                </template>
+              </Column>
+              <Column
+                :header="t('address')"
+                :pt="environmentFieldCells"
+              >
+                <template #body="{ data }">
+                  <InputText
+                    v-model="data.address"
+                    :aria-label="`${t('address')} ${data.name}`"
+                    :invalid="
+                      !!data.address.trim() &&
+                      !isValidEnvironmentAddress(data.address)
+                    "
+                    placeholder="https://example.com"
+                    class="w-full"
+                  />
+                </template>
+              </Column>
+              <Column
+                class="w-12"
+                :pt="{ headerCell: 'px-0', bodyCell: 'px-0' }"
+              >
+                <template #body="{ data }">
+                  <div class="flex items-center gap-1">
+                    <Button
+                      :icon="
+                        project.defaultEnvironment === data.id
+                          ? 'pi pi-star-fill'
+                          : 'pi pi-star'
+                      "
+                      text
+                      :aria-label="`${t('setDefaultEnvironment')} ${data.name}`"
+                      :aria-pressed="project.defaultEnvironment === data.id"
+                      :disabled="
+                        !data.name.trim() ||
+                        !isValidEnvironmentAddress(data.address)
+                      "
+                      @click="project.defaultEnvironment = data.id"
+                    />
+                    <Button
+                      icon="pi pi-trash"
+                      text
+                      :aria-label="`${t('deleteEnvironment')} ${data.name}`"
+                      @click="removeEnvironment(data.id)"
+                    />
+                  </div>
+                </template>
+              </Column>
+            </DataTable>
+            <Button
+              class="mt-3"
+              :label="t('addEnvironment')"
+              icon="pi pi-plus"
+              outlined
+              :disabled="project.environments.length >= 20"
+              @click="addEnvironment"
+            />
+          </Panel>
+        </TabPanel>
+      </TabPanels>
+    </Tabs>
     <Message
-      v-if="error"
-      severity="error"
-      closable
-      @close="error = ''"
-      >{{ error }}</Message
-    >
-    <Message
-      v-if="status"
-      severity="success"
-      closable
-      @close="status = ''"
-      >{{ status }}</Message
-    >
-    <Message
-      v-if="ready && !project"
+      v-else-if="ready"
+      class="my-4"
       severity="info"
       >{{ t('empty') }}</Message
     >
-    <template v-if="project">
-      <section class="panel environment-panel">
-        <div class="panel-heading">
-          <h2>{{ project.name }}</h2>
-          <Button
-            icon="pi pi-pencil"
-            text
-            :aria-label="t('rename')"
-            @click="nameDialog(true)"
+    <div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <Panel
+        v-if="project"
+        class="min-w-0"
+      >
+        <template #header="{ id }">
+          <h2
+            :id="id"
+            class="text-xl font-semibold"
+          >
+            {{ t('rules') }}
+          </h2>
+        </template>
+        <div class="mb-4 flex items-center gap-2">
+          <Checkbox
+            v-model="project.preserveSuffix"
+            input-id="preserve"
+            binary
+          />
+          <label for="preserve">{{ t('preserve') }}</label>
+        </div>
+        <div
+          v-for="(rule, index) in project.rules"
+          :key="index"
+          class="mb-2 flex items-center gap-2"
+        >
+          <InputText
+            v-model="rule.from"
+            :placeholder="t('from')"
+            :aria-label="t('from')"
+            class="min-w-0 flex-1"
+          />
+          <InputText
+            v-model="rule.to"
+            :placeholder="t('to')"
+            :aria-label="t('to')"
+            class="min-w-0 flex-1"
           />
           <Button
-            class="project-actions"
-            icon="pi pi-ellipsis-h"
+            icon="pi pi-trash"
             text
-            :aria-label="t('actions')"
-            @click="projectMenu?.toggle($event)"
+            :aria-label="t('deleteRule')"
+            @click="removeRule(index)"
           />
         </div>
-        <h3>{{ t('environments') }}</h3>
-        <DataTable
-          :value="project.environments"
-          data-key="id"
-          table-style="min-width: 600px"
-        >
-          <Column
-            :header="t('name')"
-            style="width: 42%"
-          >
-            <template #body="{ data }">
-              <div class="environment-name">
-                <span
-                  class="dot"
-                  :style="{ background: data.color }"
-                /><InputText
-                  v-model="data.name"
-                  :aria-label="t('name')"
-                  class="inline-input name-input"
-                  maxlength="100"
-                />
-              </div>
-            </template>
-          </Column>
-          <Column :header="t('address')">
-            <template #body="{ data }">
-              <div class="address-cell">
-                <InputText
-                  v-model="data.address"
-                  :aria-label="`${t('address')} ${data.name}`"
-                  placeholder="https://example.com"
-                  class="inline-input address-input"
-                /><span
-                  v-if="project.defaultEnvironment === data.id"
-                  class="badge"
-                  >{{ t('default') }}</span
-                >
-              </div>
-            </template>
-          </Column>
-          <Column style="width: 48px">
-            <template #body="{ data }"
-              ><Button
-                icon="pi pi-ellipsis-v"
-                text
-                :aria-label="`${t('actions')} ${data.name}`"
-                @click="
-                  row = data;
-                  rowMenu?.toggle($event);
-                "
-            /></template>
-          </Column>
-        </DataTable>
-        <Menu
-          ref="rowMenu"
-          :model="rowItems"
-          popup
-        />
         <Button
-          class="add-environment"
-          :label="t('addEnvironment')"
+          :label="t('addRule')"
           icon="pi pi-plus"
           outlined
-          :disabled="project.environments.length >= 20"
-          @click="addEnvironment"
+          @click="addRule"
         />
-      </section>
-      <div class="cards-grid">
-        <section class="panel">
-          <h3>{{ t('rules') }}</h3>
-          <label
-            class="field-label"
-            for="prefix"
-            >{{ t('prefix') }}</label
+      </Panel>
+      <Panel
+        v-if="ready"
+        class="min-w-0"
+      >
+        <template #header="{ id }">
+          <h2
+            :id="id"
+            class="text-xl font-semibold"
           >
-          <InputText
-            id="prefix"
-            v-model="project.stripPrefix"
-            placeholder="/app"
-            class="full"
-          />
-          <div class="check-line">
-            <Checkbox
-              v-model="project.preserveSuffix"
-              input-id="preserve"
-              binary
-            /><label for="preserve">{{ t('preserve') }}</label>
-          </div>
-          <details class="advanced-rules">
-            <summary>{{ t('addRule') }}</summary>
-            <div
-              v-for="(rule, index) in project.rules"
-              :key="index"
-              class="rule-row"
-            >
-              <InputText
-                v-model="rule.from"
-                :placeholder="t('from')"
-                :aria-label="t('from')"
-              />
-              <InputText
-                v-model="rule.to"
-                :placeholder="t('to')"
-                :aria-label="t('to')"
-              />
-              <Button
-                icon="pi pi-trash"
-                text
-                :aria-label="t('deleteRule')"
-                @click="project.rules.splice(index, 1)"
-              />
-            </div>
-            <Button
-              :label="t('addRule')"
-              text
-              @click="project.rules.push({ from: '', to: '' })"
-            />
-          </details>
-        </section>
-        <section class="panel link-test">
-          <h3>{{ t('test') }}</h3>
-          <label
-            class="field-label"
-            for="source"
-            >{{ t('source') }}</label
-          >
-          <InputText
-            id="source"
-            v-model="source"
-            class="full"
-          />
-          <label
-            class="field-label result-label"
-            for="result"
-            >{{ t('result') }}
-            {{
-              project.environments.find(
-                (e) => e.id === project?.defaultEnvironment,
-              )?.name
-            }}</label
-          >
-          <div class="result-row">
-            <InputText
-              id="result"
-              :model-value="result"
-              :placeholder="t('invalid')"
-              readonly
-              class="full result-input"
-            /><Button
-              icon="pi pi-copy"
-              outlined
-              :aria-label="t('copy')"
-              :disabled="!result"
-              @click="copy"
-            />
-          </div>
-        </section>
-      </div>
-      <section class="panel general-panel">
-        <h3>{{ t('general') }}</h3>
-        <p class="muted">{{ t('allProjects') }}</p>
-        <div class="general-grid">
-          <div>
-            <h4>{{ t('openLinks') }}</h4>
-            <div class="radio-options">
-              <div class="check-line">
-                <RadioButton
-                  :model-value="globalNewTab"
-                  :value="true"
-                  name="open-links"
-                  input-id="new-tab"
-                  @update:model-value="updateNewTab"
-                /><label for="new-tab">{{ t('newTab') }}</label>
-              </div>
-              <div class="check-line">
-                <RadioButton
-                  :model-value="globalNewTab"
-                  :value="false"
-                  name="open-links"
-                  input-id="current-tab"
-                  @update:model-value="updateNewTab"
-                /><label for="current-tab">{{ t('currentTab') }}</label>
-              </div>
-            </div>
-          </div>
-          <div class="shortcut-settings">
-            <h4>{{ t('shortcut') }}</h4>
-            <div class="shortcut-keys">
-              <kbd>Alt</kbd><span>+</span><kbd>Shift</kbd><span>+</span
-              ><kbd>L</kbd
-              ><Button
-                :label="t('configure')"
-                link
-                @click="openShortcuts"
-              />
-            </div>
-          </div>
-        </div>
-        <details class="advanced-rules">
-          <summary>{{ t('iconAction') }}</summary>
+            {{ t('general') }}
+          </h2>
+        </template>
+        <p class="mb-4 text-sm text-slate-600">{{ t('allProjects') }}</p>
+        <Fieldset
+          class="min-w-0"
+          :legend="t('openLinks')"
+        >
           <SelectButton
-            v-model="settings.iconAction"
-            :options="[
-              { label: t('popup'), value: 'popup' },
-              { label: t('local'), value: 'local' },
-            ]"
+            :model-value="globalNewTab"
+            :options="openLinkOptions"
             option-label="label"
             option-value="value"
             :allow-empty="false"
+            :pt="{ root: { 'aria-label': t('openLinks') } }"
+            @update:model-value="updateNewTab"
           />
-        </details>
-      </section>
-    </template>
-    <section
-      v-if="showHistory"
-      class="panel"
+        </Fieldset>
+        <Fieldset
+          class="mt-3 min-w-0"
+          :legend="t('iconAction')"
+        >
+          <SelectButton
+            :model-value="iconAction ?? 'popup'"
+            :options="iconActions"
+            option-label="label"
+            option-value="value"
+            :allow-empty="false"
+            :pt="{ root: { 'aria-label': t('iconAction') } }"
+            @update:model-value="setIconAction"
+          />
+        </Fieldset>
+        <Fieldset
+          class="mt-3 min-w-0"
+          :legend="t('shortcut')"
+        >
+          <div
+            v-for="shortcut in shortcuts"
+            :key="shortcut.name"
+            class="mb-2 flex flex-wrap items-center gap-2"
+          >
+            <span>{{ shortcut.label }}</span>
+            <Tag
+              v-if="commands"
+              severity="secondary"
+            >
+              <kbd v-if="shortcut.key">{{ shortcut.key }}</kbd>
+              <span v-else>{{ t('noShortcut') }}</span>
+            </Tag>
+          </div>
+          <Button
+            v-if="canConfigureShortcuts"
+            :label="t('configure')"
+            link
+            @click="openShortcuts"
+          />
+        </Fieldset>
+      </Panel>
+    </div>
+    <div
+      v-if="error || saveError || status"
+      class="my-4 space-y-2"
     >
-      <h3>{{ t('history') }}</h3>
-      <p
-        v-if="!history.length"
-        class="muted"
+      <Message
+        v-if="saveError"
+        severity="error"
+        >{{ t('saveError') }} {{ saveError }}</Message
       >
-        {{ t('emptyHistory') }}
-      </p>
-      <p
-        v-for="url in history"
-        :key="url"
-        class="history-url"
+      <Message
+        v-if="error"
+        severity="error"
+        closable
+        @close="error = ''"
+        >{{ error }}</Message
       >
-        {{ url }}
-      </p>
-      <Button
-        v-if="history.length"
-        :label="t('clearHistory')"
-        outlined
-        @click="
-          storage.setItem('sync:history', []);
-          history = [];
-        "
-      />
-    </section>
-    <footer class="actions">
-      <Button
-        :label="t('save')"
-        :disabled="!ready"
-        @click="save"
-      />
-    </footer>
+      <Message
+        v-if="status"
+        severity="success"
+        closable
+        @close="status = ''"
+        >{{ status }}</Message
+      >
+    </div>
+    <HistoryPanel
+      v-if="settings.projects.length"
+      class="mt-4"
+      :history="history"
+      :clearing="clearingHistory"
+      @open="openHistory"
+      @clear="clearHistory"
+    />
     <input
       ref="file"
       type="file"
@@ -565,7 +733,7 @@ onMounted(async () => {
       v-model:visible="dialog"
       modal
       :header="editing ? t('projectName') : t('addProject')"
-      :style="{ width: '26rem' }"
+      class="m-4 w-104 max-w-full"
     >
       <form @submit.prevent="submitName">
         <InputText
@@ -573,15 +741,16 @@ onMounted(async () => {
           autofocus
           :placeholder="t('exampleName')"
           :aria-label="t('projectName')"
-          class="full"
+          class="min-w-0 w-full"
           maxlength="100"
         />
-        <div class="dialog-actions">
+        <div class="mt-5 flex justify-end gap-2.5">
           <Button
             :label="t('cancel')"
             text
             @click="dialog = false"
-          /><Button
+          />
+          <Button
             type="submit"
             :label="t('done')"
             :disabled="!dialogName.trim()"
