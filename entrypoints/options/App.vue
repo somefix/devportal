@@ -15,9 +15,7 @@ import Tab from 'primevue/tab';
 import TabPanels from 'primevue/tabpanels';
 import TabPanel from 'primevue/tabpanel';
 import Panel from 'primevue/panel';
-import Fieldset from 'primevue/fieldset';
 import Toolbar from 'primevue/toolbar';
-import Tag from 'primevue/tag';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { storage } from 'wxt/utils/storage';
@@ -274,6 +272,28 @@ const openHistory = async (source: string) => {
   }
 };
 
+const openHistoryEnvironment = async (
+  source: string,
+  environmentId: string,
+) => {
+  const selectedProject = project.value;
+  if (!selectedProject) return;
+  error.value = '';
+  try {
+    if (!(await flushSave())) return;
+    await sendBackgroundRequest({
+      type: 'devportal:open-environment',
+      source,
+      projectId: selectedProject.id,
+      environmentId,
+      newTab: true,
+      reopenCurrent: true,
+    });
+  } catch (e) {
+    error.value = formatError(e);
+  }
+};
+
 const clearHistory = async () => {
   clearingHistory.value = true;
   error.value = '';
@@ -452,7 +472,7 @@ onUnmounted(() => {
       <TabPanels class="bg-transparent p-0">
         <TabPanel :value="settings.selectedProject">
           <Panel
-            class="mb-3.5 min-w-0"
+            class="mb-4 min-w-0"
             :pt="{ contentWrapper: { class: 'min-w-0' } }"
           >
             <template #header="{ id }">
@@ -594,24 +614,25 @@ onUnmounted(() => {
         <div
           v-for="(rule, index) in project.rules"
           :key="index"
-          class="mb-2 flex items-center gap-2"
+          class="mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
         >
           <InputText
             v-model="rule.from"
             :placeholder="t('from')"
             :aria-label="t('from')"
-            class="min-w-0 flex-1"
+            class="min-w-0 w-full"
           />
           <InputText
             v-model="rule.to"
             :placeholder="t('to')"
             :aria-label="t('to')"
-            class="min-w-0 flex-1"
+            class="col-start-1 min-w-0 w-full sm:col-auto"
           />
           <Button
             icon="pi pi-trash"
             text
             :aria-label="t('deleteRule')"
+            class="col-start-2 row-span-2 row-start-1 sm:col-start-3 sm:row-span-1"
             @click="removeRule(index)"
           />
         </div>
@@ -635,10 +656,8 @@ onUnmounted(() => {
           </h2>
         </template>
         <p class="mb-4 text-sm text-slate-600">{{ t('allProjects') }}</p>
-        <Fieldset
-          class="min-w-0"
-          :legend="t('openLinks')"
-        >
+        <fieldset class="min-w-0">
+          <legend class="mb-2 text-sm font-medium">{{ t('openLinks') }}</legend>
           <SelectButton
             :model-value="globalNewTab"
             :options="openLinkOptions"
@@ -648,11 +667,11 @@ onUnmounted(() => {
             :pt="{ root: { 'aria-label': t('openLinks') } }"
             @update:model-value="updateNewTab"
           />
-        </Fieldset>
-        <Fieldset
-          class="mt-3 min-w-0"
-          :legend="t('iconAction')"
-        >
+        </fieldset>
+        <fieldset class="mt-6 min-w-0">
+          <legend class="mb-2 text-sm font-medium">
+            {{ t('iconAction') }}
+          </legend>
           <SelectButton
             :model-value="iconAction ?? 'popup'"
             :options="iconActions"
@@ -662,24 +681,27 @@ onUnmounted(() => {
             :pt="{ root: { 'aria-label': t('iconAction') } }"
             @update:model-value="setIconAction"
           />
-        </Fieldset>
-        <Fieldset
-          class="mt-3 min-w-0"
-          :legend="t('shortcut')"
-        >
+        </fieldset>
+        <fieldset class="mt-6 min-w-0">
+          <legend class="mb-2 text-sm font-medium">{{ t('shortcut') }}</legend>
           <div
             v-for="shortcut in shortcuts"
             :key="shortcut.name"
-            class="mb-2 flex flex-wrap items-center gap-2"
+            class="mb-3 grid grid-cols-1 items-start gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
           >
             <span>{{ shortcut.label }}</span>
-            <Tag
-              v-if="commands"
-              severity="secondary"
-            >
-              <kbd v-if="shortcut.key">{{ shortcut.key }}</kbd>
-              <span v-else>{{ t('noShortcut') }}</span>
-            </Tag>
+            <template v-if="commands">
+              <kbd
+                v-if="shortcut.key"
+                class="keycap justify-self-start"
+                >{{ shortcut.key }}</kbd
+              >
+              <span
+                v-else
+                class="text-sm text-slate-600"
+                >{{ t('noShortcut') }}</span
+              >
+            </template>
           </div>
           <Button
             v-if="canConfigureShortcuts"
@@ -687,7 +709,7 @@ onUnmounted(() => {
             link
             @click="openShortcuts"
           />
-        </Fieldset>
+        </fieldset>
       </Panel>
     </div>
     <div
@@ -719,7 +741,9 @@ onUnmounted(() => {
       class="mt-4"
       :history="history"
       :clearing="clearingHistory"
+      :project="project"
       @open="openHistory"
+      @open-environment="openHistoryEnvironment"
       @clear="clearHistory"
     />
     <input

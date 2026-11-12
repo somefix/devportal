@@ -75,6 +75,7 @@ const messages = {
   ],
   history: ['История', 'History'],
   historyUrl: ['Исходный URL', 'Source URL'],
+  moreEnvironments: ['Другие окружения', 'More environments'],
   clearHistory: ['Очистить историю', 'Clear history'],
   emptyHistory: ['История пока пуста.', 'History is empty.'],
 } as const;

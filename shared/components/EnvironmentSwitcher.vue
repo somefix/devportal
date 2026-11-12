@@ -308,11 +308,11 @@ onUnmounted(() => {
                       severity="secondary"
                       class="shrink-0"
                     />
-                    <Tag
+                    <kbd
                       v-if="index < 9"
-                      severity="contrast"
+                      class="keycap"
                       aria-hidden="true"
-                      ><kbd>{{ index + 1 }}</kbd></Tag
+                      >{{ index + 1 }}</kbd
                     >
                   </Button>
                 </div>
@@ -377,10 +377,7 @@ onUnmounted(() => {
             />
             <span>{{ shortcut.shortLabel }}</span>
           </span>
-          <kbd
-            class="shrink-0 whitespace-nowrap rounded border border-slate-200 bg-slate-50 px-2 py-1 text-sm font-medium text-slate-800"
-            >{{ shortcut.key || t('noShortcut') }}</kbd
-          >
+          <kbd class="keycap">{{ shortcut.key || t('noShortcut') }}</kbd>
         </span>
       </footer>
       <p
