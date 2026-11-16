@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <title>Devportal — промоматериалы</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 40px 24px;
+        background: #eaf0f7;
+        color: #252f40;
+        font-family: system-ui, sans-serif;
+      }
+      main {
+        max-width: 1280px;
+        margin: auto;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(28px, 4vw, 44px);
+      }
+      p {
+        line-height: 1.6;
+      }
+      figure {
+        margin: 32px 0;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+        box-shadow: 0 12px 36px #252f4014;
+      }
+      figcaption {
+        margin-top: 12px;
+      }
+      a {
+        color: #435674;
+        text-underline-offset: 3px;
+      }
+      .small {
+        max-width: 440px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Devportal</h1>
+      <p>
+        Пять слайдов об расширении и две промокартинки. Нажмите на изображение,
+        чтобы открыть исходный PNG.
+      </p>
+      <figure>
+        <a href="slide-01-overview.png"
+          ><img
+            src="slide-01-overview.png"
+            alt="С прода на локалку в один клик"
+        /></a>
+        <figcaption>01. Переход между окружениями</figcaption>
+      </figure>
+      <figure>
+        <a href="slide-02-projects.png"
+          ><img
+            src="slide-02-projects.png"
+            alt="Проекты и список окружений Local, Dev, Stage и Prod"
+        /></a>
+        <figcaption>02. Проекты и окружения</figcaption>
+      </figure>
+      <figure>
+        <a href="slide-03-url-rules.png"
+          ><img
+            src="slide-03-url-rules.png"
+            alt="Правила замены пути, сохранение query и hash"
+        /></a>
+        <figcaption>03. Настройка адресов</figcaption>
+      </figure>
+      <figure>
+        <a href="slide-04-shortcuts.png"
+          ><img
+            src="slide-04-shortcuts.png"
+            alt="Горячая клавиша Alt+Shift+L и контекстное меню ссылки"
+        /></a>
+        <figcaption>04. Быстрые действия</figcaption>
+      </figure>
+      <figure>
+        <a href="slide-05-history.png"
+          ><img
+            src="slide-05-history.png"
+            alt="История переходов и перенос настроек через JSON"
+        /></a>
+        <figcaption>05. История и настройки</figcaption>
+      </figure>
+      <h2>Промокартинки</h2>
+      <figure class="small">
+        <a href="promo-small.png"
+          ><img
+            src="promo-small.png"
+            alt="Devportal — с прода на локалку"
+        /></a>
+        <figcaption>Компактная промокартинка</figcaption>
+      </figure>
+      <figure>
+        <a href="promo-marquee.png"
+          ><img
+            src="promo-marquee.png"
+            alt="Devportal — нужная страница в нужном окружении"
+        /></a>
+        <figcaption>Широкий промобаннер</figcaption>
+      </figure>
+      <p>
+        Иллюстрации интерфейса демонстрационные.
+        <a href="README.md">Описание материалов</a> ·
+        <a href="prompts.json">Промпты генерации</a>
+      </p>
+    </main>
+  </body>
+</html>
