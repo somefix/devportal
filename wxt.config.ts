@@ -12,7 +12,7 @@ export default defineConfig({
     name: 'Devportal',
     version: '1.1.0',
     description:
-      'Открой нужную страницу с прода на локалке одним кликом — без копипаста урлов!',
+      'Переключайтесь между продом, тестом и локалкой без ручного редактирования URL. Проекты, окружения и правила замены путей.',
     permissions: ['storage', 'activeTab', 'contextMenus', 'clipboardWrite'],
     commands: {
       'switch-environment': {
